@@ -1,0 +1,13 @@
+**/__pycache__/
+**/.DS_Store
+**/.pyc
+**.swp
+**.swo
+**.egg-info
+**/time_series_msgs
+**/.ipynb_checkpoints
+
+/examples/ignore_can_data
+/examples/logs
+/examples/dbc
+/examples/ignore
