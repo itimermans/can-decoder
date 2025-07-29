@@ -1,5 +1,7 @@
 import os
+
 import numpy as np
+
 
 class Message:
     '''
@@ -139,7 +141,7 @@ class Message:
             return
 
         ts_msg_be = self.ts_data[:,1]
-        ts_msg_le = ts_msg_be.byteswap() >> (64-(self.msg_length*8))
+        ts_msg_le = ts_msg_be.byteswap() >> np.uint64(64-(self.msg_length*8))
 
         self.msg_quantity = ts_msg_be.shape[0]
 

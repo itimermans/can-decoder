@@ -1,6 +1,8 @@
-import numpy as np
 import os
+
+import numpy as np
 from PandaCANDecoder.utils import convert_signal
+
 
 class Signal:
     '''
@@ -52,16 +54,16 @@ class Signal:
         ts_msg = self.msg.ts_data[:,1]
 
         if self.byte_order == 'be':
-            ts_msg = ts_msg << (64 - self.msg.msg_length*8)
+            ts_msg = ts_msg << np.uint64(64 - self.msg.msg_length*8)
         elif self.byte_order == 'le':
             ts_msg = ts_msg.byteswap(inplace=False)
-            ts_msg = ts_msg >> (64 - self.msg.msg_length*8)
+            ts_msg = ts_msg >> np.uint64(64 - self.msg.msg_length*8)
 
         start_idx, _ = convert_signal(self.start_bit, self.length, self.byte_order, 'inorder')
 
         bit_shift = 64 - (start_idx + self.length)
         mask = np.array((1 << self.length) - 1, dtype='uint64')
-        ts_msg_shifted = ts_msg >> bit_shift
+        ts_msg_shifted = ts_msg >> np.uint64(bit_shift)
         ts_msg_masked_shifted = ts_msg_shifted & mask
 
         return ts_msg_masked_shifted

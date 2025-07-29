@@ -1,1 +1,1 @@
-from PandaCANDecoder import decoder, logger, signal, message, dbc
+from PandaCANDecoder import dbc, decoder, message, signal
