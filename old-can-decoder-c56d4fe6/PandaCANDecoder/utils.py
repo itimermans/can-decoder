@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def convert_signal(start_bit, length, in_format, out_format):
     '''
     Convert signal defined by start_bit and length between formats: ['inorder', 'be', 'le']

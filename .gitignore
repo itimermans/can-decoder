@@ -1,3 +1,9 @@
+data/*
+time_series_msgs/*
+old-can-decoder-c56d4fe6/old_time_series_msgs/*
+old_time_series_msgs/*
+
+######################################################################################
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -206,3 +212,7 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 .DS_Store
+######################################################################################
+
+
+

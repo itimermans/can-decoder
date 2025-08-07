@@ -17,7 +17,7 @@ class Message:
             msg_ts_data (np.array[uint64])
             signal_boundaries (list[int])
     '''
-    time_series_msg_dir = './time_series_msgs' # TODO: change
+    time_series_msg_dir = './old_time_series_msgs' # TODO: change
 
     def __init__(self, msg_id, panda_buses, msg_length):
         self.msg_id = msg_id
@@ -145,8 +145,8 @@ class Message:
 
         self.msg_quantity = ts_msg_be.shape[0]
 
-        self.bf_probability_be, transition_matrix_bin_be = self._calculate_bf_probability(ts_msg_be, 'be')
-        self.bf_probability_le, transition_matrix_bin_le = self._calculate_bf_probability(ts_msg_le, 'le')
+        self.bf_probability_be, self.transition_matrix_bin_be = self._calculate_bf_probability(ts_msg_be, 'be')
+        self.bf_probability_le, self.transition_matrix_bin_le = self._calculate_bf_probability(ts_msg_le, 'le')
 
-        self.conditional_bf_probability_be = self._calculate_conditional_bf_probability(self.bf_probability_be, transition_matrix_bin_be)
-        self.conditional_bf_probability_le = self._calculate_conditional_bf_probability(self.bf_probability_le, transition_matrix_bin_le)
+        self.conditional_bf_probability_be = self._calculate_conditional_bf_probability(self.bf_probability_be, self.transition_matrix_bin_be)
+        self.conditional_bf_probability_le = self._calculate_conditional_bf_probability(self.bf_probability_le, self.transition_matrix_bin_le)
