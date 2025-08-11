@@ -19,10 +19,13 @@ class Message:
 
     time_series_msg_dir = "./time_series_msgs"
 
-    def __init__(self, msg_id, msg_length):
+    def __init__(self, msg_id, msg_length, msg_byte_filter=None):
         self.msg_id = msg_id
         self.msg_length = msg_length  # bytes
         self.msg_quantity = None
+
+        # For Diagnostics
+        self.msg_byte_filter = None
 
         self.bf_probability_be = None
         self.bf_probability_le = None

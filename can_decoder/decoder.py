@@ -8,6 +8,7 @@ from can_decoder.plotter import plot_probability_chart, plot_ts_signal
 from can_decoder.signal import Signal
 from can_decoder.utils import (
     convert_signal,
+    validate_byte_filters,
     validate_byte_order,
     validate_signedness_method,
     validate_tokenization_method,
@@ -68,7 +69,7 @@ class Decoder:
         msg = self.get_message(msg_id)
         return msg.get_signal(signal_id)
 
-    def generate_msgs(self):
+    def generate_msgs(self, byte_filters=None):
         """
         Generates PandaCANDecoder.Message() objects for each unique message in CAN file
         """
@@ -77,6 +78,18 @@ class Decoder:
 
         # for msg_id in tqdm(unique_msg_ids, desc="Generating messages".ljust(30)):
         for msg_id in unique_msg_ids:
+
+            # If byte_filters are provided, use them
+
+            # byte_filters format validation
+            if byte_filters is not None:
+                byte_filters = validate_byte_filters(byte_filters)
+
+            if byte_filters and (msg_id in byte_filters):
+                msg_byte_filter = byte_filters[msg_id]
+            else:
+                msg_byte_filter = None
+
             msg_data = unique_pairings[unique_pairings["arb_id"] == msg_id]
 
             msg_length = msg_data["length"].iloc[0]
@@ -85,6 +98,7 @@ class Decoder:
                 Message(
                     msg_id=msg_id,
                     msg_length=msg_length,
+                    msg_byte_filter=msg_byte_filter,
                 )
             )
 

@@ -100,3 +100,8 @@ def validate_signedness_method(signedness_method):
         raise ValueError(
             f"tokenization_method value must be one of {valid_signedness_methods}"
         )
+
+
+def validate_byte_filters(byte_filters):
+    # TODO: byte filters validator
+    return byte_filters
