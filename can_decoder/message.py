@@ -66,6 +66,7 @@ class Message:
                 all_data (Pandas.dataframe)
         """
         # Data path
+        # TODO: Add byte filter in data path to avoid errors
         data_path = os.path.join(self.time_series_msg_dir, self.msg_id + ".csv")
 
         # if data file does not exist

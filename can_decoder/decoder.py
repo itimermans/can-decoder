@@ -96,7 +96,7 @@ class Decoder:
         """
 
         #unique_pairings = self.all_data.drop_duplicates(subset=["arb_id"])
-        unique_msg_ids = self.all_data.drop_duplicates(subset=["arb_id"])["arb_id"].to_list()
+        self.unique_msg_ids = self.all_data.drop_duplicates(subset=["arb_id"])["arb_id"].to_list()
 
         if byte_filters is not None:
             # Validate byte_filters format
@@ -104,7 +104,7 @@ class Decoder:
             byte_filters = validate_byte_filters(byte_filters)
 
         # for msg_id in tqdm(unique_msg_ids, desc="Generating messages".ljust(30)):
-        for msg_id in unique_msg_ids:
+        for msg_id in self.unique_msg_ids:
 
             msg_data = self.all_data[self.all_data["arb_id"] == msg_id]
 
@@ -160,7 +160,6 @@ class Decoder:
                 "to do so."
             )
             return
-
         # save time series data
         os.makedirs(self.time_series_msg_dir, exist_ok=True)
         for msg in self.msgs:
