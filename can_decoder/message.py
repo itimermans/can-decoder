@@ -25,7 +25,7 @@ class Message:
         self.msg_quantity = None
 
         # For Diagnostics
-        self.msg_byte_filter = None
+        self.msg_byte_filter = msg_byte_filter
 
         self.bf_probability_be = None
         self.bf_probability_le = None
@@ -45,7 +45,12 @@ class Message:
         """
         Override print string
         """
-        return f"Message {self.msg_id}: Length {self.msg_length} bytes"
+        if self.msg_byte_filter is None:
+            str = f"Message {self.msg_id}: Length {self.msg_length} bytes"
+        else:
+            filter_str = "|".join(f"B{k}:{v}" for k, v in self.msg_byte_filter.items())
+            str = f"Message {self.msg_id} - Filter [{filter_str}] : Length {self.msg_length} bytes"
+        return str
 
     def get_signal(self, signal_id):
         for signal in self.signals:
@@ -65,26 +70,32 @@ class Message:
 
         # if data file does not exist
         if not os.path.exists(data_path) or rewrite:
-            # Filter all_data for this message ID and drop "length" column
-            time_series_msg = all_data[(all_data["arb_id"] == self.msg_id)].drop(
-                columns=["length"]
-            )
 
-            # Rename "timestamp" to "abs_time" and convert to seconds IF NEEDED
-            time_series_msg = time_series_msg.rename(columns={"timestamp": "abs_time"})
-            # time_series_msg["abs_time"] = (
-            #     time_series_msg["abs_time"].astype(float) * 10**-9
-            # )
+            # Filter all_data for this message ID
+            filtered_data = all_data[all_data["arb_id"] == self.msg_id]
+
+            # If msg_byte_filter is provided, filter further by byte values
+            if self.msg_byte_filter is not None:
+                for byte_idx, byte_val in self.msg_byte_filter.items():
+                    # byte_idx is expected to be int or str representing the column
+                    filtered_data = filtered_data[filtered_data[str(byte_idx)] == byte_val]
+
+            # Drop "length" column if present
+            if "length" in filtered_data.columns:
+                filtered_data = filtered_data.drop(columns=["length"])
+
+            # Rename "timestamp" to "abs_time" if present
+            if "timestamp" in filtered_data.columns:
+                filtered_data = filtered_data.rename(columns={"timestamp": "abs_time"})
             # For each time series keep only columns with data
             # TODO: Hard boundaries between active and inactive columns: All cells
             # should be numeric in the last active column and all NaN in the next,
             # otherwise throw in an error
-            byte_cols = [col for col in time_series_msg.columns if col.isdigit()]
-            # Keep only byte columns that have at least one non-NaN value
-            byte_cols_present = [
-                col for col in byte_cols if time_series_msg[col].notna().any()
-            ]
-            ts_dataframe = time_series_msg[["abs_time"] + byte_cols_present]
+            byte_cols = [col for col in filtered_data.columns if col.isdigit()]
+            byte_cols_present = [col for col in byte_cols if filtered_data[col].notna().any()]
+
+            ts_dataframe = filtered_data[["abs_time"] + byte_cols_present]
+
             # Save to CSV
             ts_dataframe.to_csv(data_path, index=False)
 

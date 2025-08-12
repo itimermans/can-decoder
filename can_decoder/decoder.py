@@ -12,6 +12,7 @@ from can_decoder.utils import (
     validate_byte_order,
     validate_signedness_method,
     validate_tokenization_method,
+    determine_length
 )
 
 
@@ -47,18 +48,36 @@ class Decoder:
             for col in byte_cols:
                 self.all_data[col] = self.all_data[col].astype(pd.UInt8Dtype())
 
-    def get_message(self, msg_id):
+    def get_message(self, msg_id, byte_filter_values=None):
         """
         Get message object from id
 
             Parameters:
                 msg_id (str): In hex
+                byte_filter_values (None or list of ints): Values for byte filter columns
         """
-        for msg in self.msgs:
-            if msg.msg_id == msg_id:
-                return msg
+        matches = [msg for msg in self.msgs if msg.msg_id == msg_id]
+        if byte_filter_values is not None:
+            # Filter by byte_filter_values list
+            for msg in matches:
+                if msg.msg_byte_filter is not None and list(msg.msg_byte_filter.values()) == byte_filter_values:
+                    return msg
+            raise ValueError(f"No message found with msg_id={msg_id} and byte_filter_values={byte_filter_values}")
+        else:
+            if len(matches) == 1:
+                return matches[0]
+            elif len(matches) == 0:
+                raise ValueError(f"No message found with msg_id={msg_id}")
+            else:
+                print(f"Multiple messages found with msg_id={msg_id}:")
+                for msg in matches:
+                    print(f"  msg_byte_filter={msg.msg_byte_filter}")
+                raise ValueError(
+                    f"Multiple messages found with msg_id={msg_id}. "
+                    "Specify byte_filter_values to disambiguate."
+                )
 
-    def get_signal(self, msg_id, signal_id):
+    def get_signal(self, msg_id, byte_filter_values=None, signal_id=None):
         """
         Get signal object from id
 
@@ -66,39 +85,64 @@ class Decoder:
                 msg_id (str): In hex
                 signal_id (str)
         """
-        msg = self.get_message(msg_id)
+        msg = self.get_message(msg_id, byte_filter_values)
+        if signal_id is None:
+            raise Warning(f"signal_id is None. Available signals: {[s.name for s in msg.signals]}")
         return msg.get_signal(signal_id)
 
     def generate_msgs(self, byte_filters=None):
         """
         Generates PandaCANDecoder.Message() objects for each unique message in CAN file
         """
-        unique_pairings = self.all_data.drop_duplicates(subset=["arb_id"])
-        unique_msg_ids = unique_pairings["arb_id"].drop_duplicates().to_list()
+
+        #unique_pairings = self.all_data.drop_duplicates(subset=["arb_id"])
+        unique_msg_ids = self.all_data.drop_duplicates(subset=["arb_id"])["arb_id"].to_list()
+
+        if byte_filters is not None:
+            # Validate byte_filters format
+            # TODO: Decide what to do if error in validation
+            byte_filters = validate_byte_filters(byte_filters)
 
         # for msg_id in tqdm(unique_msg_ids, desc="Generating messages".ljust(30)):
         for msg_id in unique_msg_ids:
 
-            # If byte_filters are provided, use them
-
-            # byte_filters format validation
-            if byte_filters is not None:
-                byte_filters = validate_byte_filters(byte_filters)
+            msg_data = self.all_data[self.all_data["arb_id"] == msg_id]
 
             if byte_filters and (msg_id in byte_filters):
+                # Generate sub-messages with byte filter
                 msg_byte_filter = byte_filters[msg_id]
+
+                
+                unique_msg_pairings = msg_data.drop_duplicates(subset = msg_byte_filter)
+
+                for _, row in unique_msg_pairings.iterrows():
+                    sub_msg_data = msg_data[
+                        (msg_data[msg_byte_filter] == row[msg_byte_filter]).all(axis=1)
+                    ]
+
+                    # sub_msg_length = determine_length(sub_msg_data) # TODO: Apply and refine
+                    sub_msg_length = sub_msg_data["length"].iloc[0]
+
+                    # Create a dict mapping column names to their values in the current row
+                    msg_byte_filter_dict = {col: row[col] for col in msg_byte_filter}
+
+                    self.msgs.append(
+                        Message(
+                            msg_id=msg_id,
+                            msg_length=sub_msg_length,
+                            msg_byte_filter=msg_byte_filter_dict,
+                        )
+                    )
+
+
             else:
-                msg_byte_filter = None
+                msg_length = msg_data["length"].iloc[0]
 
-            msg_data = unique_pairings[unique_pairings["arb_id"] == msg_id]
-
-            msg_length = msg_data["length"].iloc[0]
-
-            self.msgs.append(
+                self.msgs.append(
                 Message(
                     msg_id=msg_id,
                     msg_length=msg_length,
-                    msg_byte_filter=msg_byte_filter,
+                    msg_byte_filter=None,
                 )
             )
 
@@ -395,11 +439,11 @@ class Decoder:
         #             return "signed"
         #         return "unsigned"
 
-    def plot_message_from_id(self, msg_id, byte_order="be"):
+    def plot_message_from_id(self, msg_id, byte_filter_values=None, byte_order="be"):
         """
         Plot a message by its ID.
         """
-        msg = self.get_message(msg_id)
+        msg = self.get_message(msg_id, byte_filter_values=byte_filter_values)
         if msg is None:
             print(f"Message {msg_id} not found.")
             return
@@ -407,11 +451,11 @@ class Decoder:
         fig = plot_probability_chart(msg, byte_order=byte_order)
         fig.show()
 
-    def plot_signal_from_id(self, msg_id, signal_name):
+    def plot_signal_from_id(self, msg_id, byte_filter_values=None, signal_name=None):
         """
         Plot a signal by its message ID and signal name.
         """
-        signal = self.get_signal(msg_id, signal_name)
+        signal = self.get_signal(msg_id, byte_filter_values=byte_filter_values, signal_name=signal_name)
         if signal is None:
             print(f"Signal {signal_name} in message {msg_id} not found.")
             return

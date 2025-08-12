@@ -105,3 +105,20 @@ def validate_signedness_method(signedness_method):
 def validate_byte_filters(byte_filters):
     # TODO: byte filters validator
     return byte_filters
+
+
+def determine_length(data):
+    byte_cols = []
+    for i in range(1, 65):
+        col_name = str(i)
+        if col_name in data.columns:
+            byte_cols.append(col_name)
+    # Find the first column (from "1" to "64") where all values are NA
+    length = 0
+    for col in byte_cols:
+        if data[col].notna().any():
+            length += 1
+        else:
+            break
+    return length
+    
