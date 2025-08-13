@@ -51,7 +51,7 @@ class Signal:
         self.max = max  # 2**self.length # this is hacky, change this
 
     def __repr__(self):
-        return f"Message: {self.msg.msg_id}, Signal: {self.name}"
+        return f"Message: {self.msg.msg_id}, Signal: {self.name}, Type: {self.classification} , Signed: {self.signedness}"
 
     @property
     def dbc_str(self):

@@ -450,13 +450,51 @@ class Decoder:
         fig = plot_probability_chart(msg, byte_order=byte_order)
         fig.show()
 
-    def plot_signal_from_id(self, msg_id, byte_filter_values=None, signal_name=None):
+    def plot_signal_from_id(self, msg_id, byte_filter_values=None, signal_id=None, return_fig=False):
         """
         Plot a signal by its message ID and signal name.
         """
-        signal = self.get_signal(msg_id, byte_filter_values=byte_filter_values, signal_name=signal_name)
+        signal = self.get_signal(msg_id, byte_filter_values=byte_filter_values, signal_id=signal_id)
         if signal is None:
-            print(f"Signal {signal_name} in message {msg_id} not found.")
+            print(f"Signal {signal_id} in message {msg_id} not found.")
             return
+        
         fig = plot_ts_signal(signal)
+        if return_fig:
+            return fig
         fig.show()
+
+    def signal_match(self, signal_a, signal_b, start_time = None, end_time = None):
+        """
+        Assume signal_a is the low update rate known signal,
+        and signal_b is the high update rate unknown signal we want to check signal_a against
+        Efficiently filter time series data for both signals using start_time and end_time.
+        Returns:
+            x_time, x, y_time, y: filtered timestamps and values for signal_a and signal_b
+        """
+        # Filter signal_a
+        a_time = signal_a.ts_data_timestamps
+        a_vals = signal_a.ts_data
+        if start_time is not None:
+            mask_a = a_time >= start_time
+        else:
+            mask_a = np.ones_like(a_time, dtype=bool)
+        if end_time is not None:
+            mask_a &= a_time <= end_time
+        x_time = a_time[mask_a]
+        x = a_vals[mask_a]
+
+        # Filter signal_b
+        b_time = signal_b.ts_data_timestamps
+        b_vals = signal_b.ts_data
+        if start_time is not None:
+            mask_b = b_time >= start_time
+        else:
+            mask_b = np.ones_like(b_time, dtype=bool)
+        if end_time is not None:
+            mask_b &= b_time <= end_time
+        y_time = b_time[mask_b]
+        y = b_vals[mask_b]
+
+        return x_time, x, y_time, y
+        
