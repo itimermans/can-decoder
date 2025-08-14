@@ -104,9 +104,14 @@ class Signal:
             "inorder",
             msg_size_bytes=msg_length,
         )
-        # TODO: Fix this crap. When self.byte_order == "be" vals goes as np.int64,
+        # Fix this crap. When self.byte_order == "be" vals goes as np.int64,
         # but as int when "le". bit_shift is np.int64 so creates an
         # error for the le case
+        # Updated: Figured the issue: msg_length was np.int64 so 8 * (msg_length - 1 - i)
+        # in the "be" option turned val into np.int64, causing overflows that became 0
+        # TODO: HEAVILY optimize. Assume signals are always max 8 bytes, make an exceptional function 
+        # in case they arent (use python ints), cancel signal processing for constant empty signals and 
+        # vectorize the shite out of this 
         bit_shift = int((msg_length * 8) - (start_idx + self.length))
         mask = (1 << self.length) - 1
         vals_shifted = [int(v) >> bit_shift for v in vals]
