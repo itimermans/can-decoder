@@ -83,14 +83,14 @@ class Signal:
             for row in byte_array:
                 val = 0
                 for i in range(msg_length):
-                    shift = 8 * (msg_length - 1 - i)
+                    shift = int(8 * (msg_length - 1 - i))
                     val |= int(row[i]) << shift
                 vals.append(val)
         elif self.byte_order == "le":
             for row in byte_array:
                 val = 0
                 for i in range(msg_length):
-                    shift = 8 * i
+                    shift = int(8 * i)
                     val |= int(row[i]) << shift
                 vals.append(val)
         else:
