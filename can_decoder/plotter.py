@@ -134,3 +134,17 @@ def plot_ts_signal(signal):
         ]
     )
     return fig
+
+def plot_ts_signals(signals):
+    fig = go.Figure(
+        data = [
+            go.Scatter(
+                x=signal.ts_data_timestamps,
+                y=signal.ts_data,
+                mode="lines",
+                name=signal.name,
+            )
+            for signal in signals
+        ]
+    )
+    return fig

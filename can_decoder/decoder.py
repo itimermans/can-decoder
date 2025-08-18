@@ -3,8 +3,9 @@ import os
 import numpy as np
 import pandas as pd
 
+from sklearn.linear_model import LinearRegression
 from can_decoder.message import Message
-from can_decoder.plotter import plot_probability_chart, plot_ts_signal
+from can_decoder.plotter import plot_probability_chart, plot_ts_signal, plot_ts_signals
 from can_decoder.signal import Signal
 from can_decoder.utils import (
     convert_signal,
@@ -450,6 +451,30 @@ class Decoder:
         fig = plot_probability_chart(msg, byte_order=byte_order)
         fig.show()
 
+    def plot_message_ts_signals(self, msg_id, byte_filter_values=None, return_fig=False):
+        msg = self.get_message(msg_id, byte_filter_values=byte_filter_values)
+        if msg is None:
+            print(f"Message {msg_id} not found.")
+            return
+
+        fig = plot_ts_signals([signal for signal in msg.signals if signal.classification == "ts"])
+        if return_fig:
+            return fig
+        fig.show()
+
+    def plot_signals(self, signals, return_fig=False):
+        """
+        Plot a signal.
+        """
+        if not signals:
+            print("Signals not found.")
+            return
+
+        fig = plot_ts_signals(signals)
+        if return_fig:
+            return fig
+        fig.show()
+
     def plot_signal_from_id(self, msg_id, byte_filter_values=None, signal_id=None, return_fig=False):
         """
         Plot a signal by its message ID and signal name.
@@ -464,15 +489,20 @@ class Decoder:
             return fig
         fig.show()
 
+        
+
     def signal_match(self, signal_a, signal_b, start_time = None, end_time = None):
         """
         Assume signal_a is the low update rate known signal,
-        and signal_b is the high update rate unknown signal we want to check signal_a against
-        Efficiently filter time series data for both signals using start_time and end_time.
+        and signal_b is the high update rate unknown signal we want to check signal_a against.
+        Steps:
+        1. Filter both signals by start_time and end_time.
+        2. Interpolate high-rate signal_b to the timestamps of low-rate signal_a.
+        3. Perform linear regression between signal_a and interpolated signal_b.
         Returns:
-            x_time, x, y_time, y: filtered timestamps and values for signal_a and signal_b
+            result_dict: dict with keys 'x_time', 'x', 'y_interp', 'regression_coef', 'regression_intercept', 'r_value', 'p_value', 'std_err'
         """
-        # Filter signal_a
+        # Step 1: Filter signal_a (low-rate)
         a_time = signal_a.ts_data_timestamps
         a_vals = signal_a.ts_data
         if start_time is not None:
@@ -484,7 +514,7 @@ class Decoder:
         x_time = a_time[mask_a]
         x = a_vals[mask_a]
 
-        # Filter signal_b
+        # Step 1: Filter signal_b (high-rate)
         b_time = signal_b.ts_data_timestamps
         b_vals = signal_b.ts_data
         if start_time is not None:
@@ -496,5 +526,49 @@ class Decoder:
         y_time = b_time[mask_b]
         y = b_vals[mask_b]
 
-        return x_time, x, y_time, y
+        # Step 2: Interpolate high-rate signal_b to low-rate timestamps
+        # Use numpy.interp for 1D interpolation
+        # y_interp will have same length as x_time
+        if len(y_time) == 0 or len(x_time) == 0:
+            print("No data in selected time range.")
+            return None
+        y_interp = np.interp(x_time, y_time, y)
+
+        # Step 3: Linear regression
+        # Use scipy.stats.linregress
+        try:
+            from scipy.stats import linregress
+        except ImportError:
+            print("scipy is required for linear regression. Please install scipy.")
+            return None
+        regression = linregress(x, y_interp)
+
+        # # Step 3 Alternative 
+        #         # Step 3: Linear regression using sklearn
+        # x_reshaped = x.reshape(-1, 1)
+        # y_interp_reshaped = y_interp.reshape(-1, 1)
+        # reg = LinearRegression()
+        # reg.fit(x_reshaped, y_interp_reshaped)
+        # regression = type('RegressionResult', (object,), {})()
+        # regression.slope = reg.coef_[0][0]
+        # regression.intercept = reg.intercept_[0]
+        # # Calculate r_value
+        # y_pred = reg.predict(x_reshaped)
+        # ss_res = np.sum((y_interp_reshaped - y_pred) ** 2)
+        # ss_tot = np.sum((y_interp_reshaped - np.mean(y_interp_reshaped)) ** 2)
+        # regression.rvalue = np.sqrt(1 - ss_res / ss_tot) if ss_tot != 0 else 0
+        # regression.pvalue = None  # Not available in sklearn
+        # regression.stderr = None  # Not available in sklearn
+        # regression.score = reg.score(x_reshaped, y_interp_reshaped)  # Coefficient of determination (R^2)
+
+        # Step 4: Return results
+        result_dict = {
+            'regression_coef': regression.slope,
+            'regression_intercept': regression.intercept,
+            'r_value': regression.rvalue,
+            'p_value': regression.pvalue,
+            'std_err': regression.stderr,
+            'score': regression.rvalue ** 2  # Coefficient of determination (R^2)
+        }
+        return result_dict
         
