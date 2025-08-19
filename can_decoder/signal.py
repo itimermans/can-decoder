@@ -51,7 +51,7 @@ class Signal:
         self.max = max  # 2**self.length # this is hacky, change this
 
     def __repr__(self):
-        return f"Message: {self.msg.msg_id}, Signal: {self.name}, Type: {self.classification} , Signed: {self.signedness}"
+        return f"Message: {self.msg.msg_id}, Signal: {self.name}, Type: {self.classification} , Signed: {self.signedness}, Length: {self.length}"
 
     @property
     def dbc_str(self):
@@ -70,7 +70,7 @@ class Signal:
     @property
     def ts_data_raw(self):
         # self.msg.ts_data: DataFrame with columns: 'abs_time', 'byte0', ..., 'byteN'
-        import numpy as np
+        
 
         df = self.msg.ts_data
         msg_length = self.msg.msg_length  # in bytes
@@ -117,6 +117,8 @@ class Signal:
         vals_shifted = [int(v) >> bit_shift for v in vals]
         vals_masked = [int(v) & mask for v in vals_shifted]
         return np.array(vals_masked, dtype=object)
+
+
 
     # Different version for max 8 bytes signals
     # def ts_data_raw(self):
@@ -183,6 +185,16 @@ class Signal:
         )
 
         return ts_signal_data
+    
+    @property
+    def ts_data_raw_normalized(self):
+        ts_signal_data_raw = self.ts_data_raw
+
+        # Normalize the data to the range [0, 100]
+        ts_signal_data_normalized = (ts_signal_data_raw - np.min(ts_signal_data_raw)) / (
+            np.max(ts_signal_data_raw) - np.min(ts_signal_data_raw)
+        ) * 100
+        return ts_signal_data_normalized
 
     # Different version for max 8 bytes signals
     # def ts_data(self):

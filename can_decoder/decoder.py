@@ -313,7 +313,7 @@ class Decoder:
                     byte_order,
                     msg_size_bytes=msg.msg_length,
                 )
-                signal_name = f"SIG_{(byte_order).upper()}_{signal_name_idx}"
+                signal_name = f"S_{(msg.msg_id).upper()}_{(byte_order).upper()}_{signal_name_idx}"
                 if bf_probability[i] == 0:
                     signal = Signal(
                         start_bit,
@@ -451,26 +451,30 @@ class Decoder:
         fig = plot_probability_chart(msg, byte_order=byte_order)
         fig.show()
 
-    def plot_message_ts_signals(self, msg_id, byte_filter_values=None, return_fig=False):
+    def plot_message_ts_signals(self, msg_id, byte_filter_values=None, return_fig=False, normalized=False):
         msg = self.get_message(msg_id, byte_filter_values=byte_filter_values)
         if msg is None:
             print(f"Message {msg_id} not found.")
             return
 
-        fig = plot_ts_signals([signal for signal in msg.signals if signal.classification == "ts"])
+        fig = plot_ts_signals([signal for signal in msg.signals if signal.classification == "ts"],normalized=normalized)
         if return_fig:
             return fig
         fig.show()
 
-    def plot_signals(self, signals, return_fig=False):
+    def plot_signals(self, signals, return_fig=False, normalized=False):
         """
         Plot a signal.
         """
         if not signals:
             print("Signals not found.")
             return
+        
+        # Make sure it is a list, even with one signal
+        if not isinstance(signals, list):
+            signals = [signals]
 
-        fig = plot_ts_signals(signals)
+        fig = plot_ts_signals(signals, normalized=normalized)
         if return_fig:
             return fig
         fig.show()
@@ -562,13 +566,60 @@ class Decoder:
         # regression.score = reg.score(x_reshaped, y_interp_reshaped)  # Coefficient of determination (R^2)
 
         # Step 4: Return results
-        result_dict = {
-            'regression_coef': regression.slope,
-            'regression_intercept': regression.intercept,
-            'r_value': regression.rvalue,
-            'p_value': regression.pvalue,
-            'std_err': regression.stderr,
-            'score': regression.rvalue ** 2  # Coefficient of determination (R^2)
-        }
-        return result_dict
-        
+        # result_dict = {
+        #     'regression_coef': regression.slope,
+        #     'regression_intercept': regression.intercept,
+        #     'r_value': regression.rvalue,
+        #     'p_value': regression.pvalue,
+        #     'std_err': regression.stderr,
+        #     'score': regression.rvalue ** 2  # Coefficient of determination (R^2)
+        # }
+        return regression, regression.rvalue ** 2
+
+    def find_signal_match(self, signal, thresh=0.5, start_time=None, end_time=None, messages=None, only_ts = False):
+        """
+        Loop through all signals of all other messages (or the ones specified in messages) and
+        find a matching signal for the given signal within the specified time range.
+        """
+        if messages is None:
+            messages = self.msgs
+        else:   
+            # Make sure its a list
+            # TODO: More validation
+            if not isinstance(messages, list):
+                messages = [messages]
+
+        candidates = []
+
+        for msg in messages:
+            for other_signal in msg.signals:
+                if (other_signal == signal) or (only_ts and other_signal.classification != 'ts'):
+                    continue
+                regression, r_sq = self.signal_match(signal, other_signal, start_time, end_time)
+                if r_sq is not None and r_sq >= thresh:
+                    print(
+                        f"{signal.name:<20} --> {other_signal.name:<20} in {msg.msg_id:<10} , r^2={r_sq:.4f}"
+                    )
+                    candidates.append((other_signal, regression, r_sq))
+                    # Sort candidates by r^2 value
+                    candidates.sort(key=lambda x: x[2], reverse=True)
+
+        return candidates
+
+    def plot_signal_matches(self, signal, candidates, return_fig=False):
+
+        signals = [signal] + [c[0] for c in candidates]
+
+        fig = self.plot_signals(signals, return_fig=True, normalized=True)
+
+        fig.data[0].line.color = "black"  # Original signal in black
+        fig.data[0].mode = "lines+markers"  # Thicker line for original signal
+        fig.data[0].marker.symbol = "cross"
+
+        # Add R2 to names
+        for i, c in enumerate(candidates):
+            fig.data[i + 1].name = f"{c[0].name}<br>(R²={c[2]:.5f})"
+
+        if return_fig:
+            return fig
+        fig.show()

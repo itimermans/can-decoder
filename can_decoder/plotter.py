@@ -135,12 +135,12 @@ def plot_ts_signal(signal):
     )
     return fig
 
-def plot_ts_signals(signals):
+def plot_ts_signals(signals, normalized=False):
     fig = go.Figure(
         data = [
             go.Scatter(
                 x=signal.ts_data_timestamps,
-                y=signal.ts_data,
+                y=signal.ts_data_raw_normalized if normalized else signal.ts_data,
                 mode="lines",
                 name=signal.name,
             )
