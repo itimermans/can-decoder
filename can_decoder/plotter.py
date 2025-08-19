@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 from can_decoder.utils import convert_signal
 
 
-def plot_probability_chart(msg, byte_order):
+def plot_probability_chart(msg, byte_order,conditional_bit_flip = True):
 
     n_bits = msg.msg_length * 8
     x_values_inorder = np.arange(0, n_bits)
@@ -14,10 +14,10 @@ def plot_probability_chart(msg, byte_order):
         ].reshape(
             n_bits,
         )
-        bf_probability = msg.bf_probability_be
+        bf_probability = msg.conditional_bf_probability_be if conditional_bit_flip else msg.bf_probability_be
     elif byte_order == "le":
         x_values_byte_order = x_values_inorder[::-1]
-        bf_probability = msg.bf_probability_le
+        bf_probability = msg.conditional_bf_probability_le if conditional_bit_flip else msg.bf_probability_le
     else:
         raise ValueError("byte_order must be 'be' or 'le'")
 
@@ -140,7 +140,7 @@ def plot_ts_signals(signals, normalized=False):
         data = [
             go.Scatter(
                 x=signal.ts_data_timestamps,
-                y=signal.ts_data_raw_normalized if normalized else signal.ts_data,
+                y=signal.ts_data_normalized if normalized else signal.ts_data,
                 mode="lines",
                 name=signal.name,
             )

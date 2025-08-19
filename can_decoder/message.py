@@ -1,7 +1,8 @@
 import os
 
 import numpy as np
-import pandas as pd  # MODIFIED: Added pandas for DataFrame structure
+import pandas as pd  
+from can_decoder.plotter import plot_probability_chart
 
 
 class Message:
@@ -35,6 +36,8 @@ class Message:
 
         self.transition_matrix_bin_be = None
         self.transition_matrix_bin_le = None
+
+        self.tokenization_method_used = None
 
         self.name = ""
         self.signals = None
@@ -220,3 +223,7 @@ class Message:
         self.conditional_bf_probability_le = self._calculate_conditional_bf_probability(
             self.bf_probability_le, self.transition_matrix_bin_le
         )
+
+    def plot(self, byte_order="be"):
+        fig = plot_probability_chart(self, byte_order=byte_order, conditional_bit_flip=(self.tokenization_method_used == 'conditional_bit_flip'))
+        fig.show()

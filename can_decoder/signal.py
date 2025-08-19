@@ -1,6 +1,7 @@
 import numpy as np
 
 from can_decoder.utils import convert_signal
+from can_decoder.plotter import plot_ts_signal
 
 
 class Signal:
@@ -51,7 +52,7 @@ class Signal:
         self.max = max  # 2**self.length # this is hacky, change this
 
     def __repr__(self):
-        return f"Message: {self.msg.msg_id}, Signal: {self.name}, Type: {self.classification} , Signed: {self.signedness}, Length: {self.length}"
+        return f"Msg: {self.msg.msg_id:<10} Signal: {self.name:<20} Type: {self.classification:<5} Sign: {self.signedness:<10} Bit: {self.start_bit:<5} Length: {self.length:<5}"
 
     @property
     def dbc_str(self):
@@ -187,14 +188,16 @@ class Signal:
         return ts_signal_data
     
     @property
-    def ts_data_raw_normalized(self):
-        ts_signal_data_raw = self.ts_data_raw
+    def ts_data_normalized(self):
+        ts_signal_data = self.ts_data
 
         # Normalize the data to the range [0, 100]
-        ts_signal_data_normalized = (ts_signal_data_raw - np.min(ts_signal_data_raw)) / (
-            np.max(ts_signal_data_raw) - np.min(ts_signal_data_raw)
+        ts_signal_data_normalized = (ts_signal_data - np.min(ts_signal_data)) / (
+            np.max(ts_signal_data) - np.min(ts_signal_data)
         ) * 100
         return ts_signal_data_normalized
+    
+    
 
     # Different version for max 8 bytes signals
     # def ts_data(self):
@@ -220,3 +223,10 @@ class Signal:
         time_data_filtered = self.ts_data_timestamps[0::sampling_rate]
 
         return np.gradient(ts_data_filtered, time_data_filtered), time_data_filtered
+
+
+    def plot(self, return_fig=False):
+        fig = plot_ts_signal(self)
+        if return_fig:
+            return fig
+        fig.show()

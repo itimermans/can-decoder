@@ -228,8 +228,7 @@ class Decoder:
         )
 
         msg.signals = signals_be + signals_le
-        # msg.signals = signals_be
-
+        msg.tokenization_method_used = tokenization_method
     def _method_condition(
         self, method, i, bf_probability, conditional_bf_probability, alpha1, alpha2
     ):
@@ -448,7 +447,9 @@ class Decoder:
             print(f"Message {msg_id} not found.")
             return
 
-        fig = plot_probability_chart(msg, byte_order=byte_order)
+        conditional_bit_flip = (msg.tokenization_method_used == 'conditional_bit_flip')
+
+        fig = plot_probability_chart(msg, byte_order=byte_order, conditional_bit_flip=conditional_bit_flip)
         fig.show()
 
     def plot_message_ts_signals(self, msg_id, byte_filter_values=None, return_fig=False, normalized=False):
@@ -598,7 +599,7 @@ class Decoder:
                 regression, r_sq = self.signal_match(signal, other_signal, start_time, end_time)
                 if r_sq is not None and r_sq >= thresh:
                     print(
-                        f"{signal.name:<20} --> {other_signal.name:<20} in {msg.msg_id:<10} , r^2={r_sq:.4f}"
+                        f"{signal.name:<20} --> {other_signal.name:<20} in {msg.msg_id:<10} , r^2={r_sq:.6f}"
                     )
                     candidates.append((other_signal, regression, r_sq))
                     # Sort candidates by r^2 value
@@ -615,10 +616,19 @@ class Decoder:
         fig.data[0].line.color = "black"  # Original signal in black
         fig.data[0].mode = "lines+markers"  # Thicker line for original signal
         fig.data[0].marker.symbol = "cross"
+        fig.data[0].yaxis = "y2"
+        fig.update_layout(
+            yaxis2=dict(
+                title="Matched Signals",
+                overlaying="y",
+                side="right",
+                showgrid=False,
+            )
+        )
 
         # Add R2 to names
         for i, c in enumerate(candidates):
-            fig.data[i + 1].name = f"{c[0].name}<br>(R²={c[2]:.5f})"
+            fig.data[i + 1].name = f"{c[0].name}<br>(R²={c[2]:.6f})"
 
         if return_fig:
             return fig
