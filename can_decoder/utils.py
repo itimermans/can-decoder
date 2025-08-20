@@ -121,4 +121,3 @@ def determine_length(data):
         else:
             break
     return length
-    

@@ -1,7 +1,8 @@
 import os
 
 import numpy as np
-import pandas as pd  
+import pandas as pd
+
 from can_decoder.plotter import plot_probability_chart
 
 
@@ -52,7 +53,10 @@ class Message:
             str = f"Message {self.msg_id}: Length {self.msg_length} bytes"
         else:
             filter_str = "|".join(f"B{k}:{v}" for k, v in self.msg_byte_filter.items())
-            str = f"Message {self.msg_id} - Filter [{filter_str}] : Length {self.msg_length} bytes"
+            str = (
+                f"Message {self.msg_id} - Filter [{filter_str}] : "
+                f"Length {self.msg_length} bytes"
+            )
         return str
 
     def get_signal(self, signal_id):
@@ -82,7 +86,9 @@ class Message:
             if self.msg_byte_filter is not None:
                 for byte_idx, byte_val in self.msg_byte_filter.items():
                     # byte_idx is expected to be int or str representing the column
-                    filtered_data = filtered_data[filtered_data[str(byte_idx)] == byte_val]
+                    filtered_data = filtered_data[
+                        filtered_data[str(byte_idx)] == byte_val
+                    ]
 
             # Drop "length" column if present
             if "length" in filtered_data.columns:
@@ -96,7 +102,9 @@ class Message:
             # should be numeric in the last active column and all NaN in the next,
             # otherwise throw in an error
             byte_cols = [col for col in filtered_data.columns if col.isdigit()]
-            byte_cols_present = [col for col in byte_cols if filtered_data[col].notna().any()]
+            byte_cols_present = [
+                col for col in byte_cols if filtered_data[col].notna().any()
+            ]
 
             ts_dataframe = filtered_data[["abs_time"] + byte_cols_present]
 
@@ -225,5 +233,11 @@ class Message:
         )
 
     def plot(self, byte_order="be"):
-        fig = plot_probability_chart(self, byte_order=byte_order, conditional_bit_flip=(self.tokenization_method_used == 'conditional_bit_flip'))
+        fig = plot_probability_chart(
+            self,
+            byte_order=byte_order,
+            conditional_bit_flip=(
+                self.tokenization_method_used == "conditional_bit_flip"
+            ),
+        )
         fig.show()

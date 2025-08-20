@@ -1,7 +1,7 @@
 import numpy as np
 
-from can_decoder.utils import convert_signal
 from can_decoder.plotter import plot_ts_signal
+from can_decoder.utils import convert_signal
 
 
 class Signal:
@@ -52,7 +52,14 @@ class Signal:
         self.max = max  # 2**self.length # this is hacky, change this
 
     def __repr__(self):
-        return f"Msg: {self.msg.msg_id:<10} Signal: {self.name:<20} Type: {self.classification:<5} Sign: {self.signedness:<10} Bit: {self.start_bit:<5} Length: {self.length:<5}"
+        return (
+            f"Msg: {self.msg.msg_id:<10} "
+            f"Signal: {self.name:<20} "
+            f"Type: {self.classification:<5} "
+            f"Sign: {self.signedness:<10} "
+            f"Bit: {self.start_bit:<5} "
+            f"Length: {self.length:<5}"
+        )
 
     @property
     def dbc_str(self):
@@ -71,7 +78,6 @@ class Signal:
     @property
     def ts_data_raw(self):
         # self.msg.ts_data: DataFrame with columns: 'abs_time', 'byte0', ..., 'byteN'
-        
 
         df = self.msg.ts_data
         msg_length = self.msg.msg_length  # in bytes
@@ -108,18 +114,19 @@ class Signal:
         # Fix this crap. When self.byte_order == "be" vals goes as np.int64,
         # but as int when "le". bit_shift is np.int64 so creates an
         # error for the le case
-        # Updated: Figured the issue: msg_length was np.int64 so 8 * (msg_length - 1 - i)
+        # Updated: Figured the issue: msg_length was np.int64 so
+        # 8 * (msg_length - 1 - i)
         # in the "be" option turned val into np.int64, causing overflows that became 0
-        # TODO: HEAVILY optimize. Assume signals are always max 8 bytes, make an exceptional function 
-        # in case they arent (use python ints), cancel signal processing for constant empty signals and 
-        # vectorize the shite out of this 
+        # TODO: HEAVILY optimize. Assume signals are always max 8 bytes, make an
+        # exceptional function
+        # in case they arent (use python ints), cancel signal processing for
+        # constant empty signals and
+        # vectorize the shite out of this
         bit_shift = int((msg_length * 8) - (start_idx + self.length))
         mask = (1 << self.length) - 1
         vals_shifted = [int(v) >> bit_shift for v in vals]
         vals_masked = [int(v) & mask for v in vals_shifted]
         return np.array(vals_masked, dtype=object)
-
-
 
     # Different version for max 8 bytes signals
     # def ts_data_raw(self):
@@ -186,18 +193,18 @@ class Signal:
         )
 
         return ts_signal_data
-    
+
     @property
     def ts_data_normalized(self):
         ts_signal_data = self.ts_data
 
         # Normalize the data to the range [0, 100]
-        ts_signal_data_normalized = (ts_signal_data - np.min(ts_signal_data)) / (
-            np.max(ts_signal_data) - np.min(ts_signal_data)
-        ) * 100
+        ts_signal_data_normalized = (
+            (ts_signal_data - np.min(ts_signal_data))
+            / (np.max(ts_signal_data) - np.min(ts_signal_data))
+            * 100
+        )
         return ts_signal_data_normalized
-    
-    
 
     # Different version for max 8 bytes signals
     # def ts_data(self):
@@ -223,7 +230,6 @@ class Signal:
         time_data_filtered = self.ts_data_timestamps[0::sampling_rate]
 
         return np.gradient(ts_data_filtered, time_data_filtered), time_data_filtered
-
 
     def plot(self, return_fig=False):
         fig = plot_ts_signal(self)
