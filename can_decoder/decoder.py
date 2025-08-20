@@ -586,7 +586,12 @@ class Decoder:
         except ImportError:
             print("scipy is required for linear regression. Please install scipy.")
             return None
-        regression = linregress(x, y_interp)
+        try:
+            regression = linregress(x, y_interp)
+        except Exception as e:
+            import warnings
+            warnings.warn(f"Linear regression failed for signal_a {signal_a.name} ({signal_a.msg.msg_id}) and signal_b {signal_b.name} ({signal_b.msg.msg_id}): \n{e}")
+            return None
 
         # # Step 3 Alternative
         #         # Step 3: Linear regression using sklearn
@@ -643,6 +648,7 @@ class Decoder:
         candidates = []
 
         for msg in messages:
+            # TODO: Might not have signals
             for other_signal in msg.signals:
                 if (other_signal == signal) or (
                     only_ts and other_signal.classification != "ts"
