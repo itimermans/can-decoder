@@ -19,6 +19,7 @@ class Message:
             signal_boundaries (list[int])
     """
 
+    # TODO: Add decoder / network information to discriminate between files
     time_series_msg_dir = "./time_series_msgs"
 
     def __init__(self, msg_id, msg_length, msg_byte_filter=None):

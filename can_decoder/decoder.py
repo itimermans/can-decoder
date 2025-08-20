@@ -3,7 +3,6 @@ import os
 import numpy as np
 import pandas as pd
 
-from sklearn.linear_model import LinearRegression
 from can_decoder.message import Message
 from can_decoder.plotter import plot_probability_chart, plot_ts_signal, plot_ts_signals
 from can_decoder.signal import Signal
@@ -13,7 +12,6 @@ from can_decoder.utils import (
     validate_byte_order,
     validate_signedness_method,
     validate_tokenization_method,
-    determine_length
 )
 
 
@@ -22,7 +20,7 @@ class Decoder:
     Main Decoder
     """
 
-    def __init__(self, csv_file_path=None):
+    def __init__(self, df=None, csv_file_path=None):
         """
         Decoder constructor
 
@@ -33,21 +31,36 @@ class Decoder:
         self.time_series_msg_dir = "./time_series_msgs"  # TODO: make static
         self.msgs = []
 
-        # Load data
-        if csv_file_path:
-            self.all_data = pd.read_csv(self.csv_file_path)
+        if df is not None:
+            # If df is provided, use it directly
+            self.all_data = df
+        else:
+            # Load data from CSV file
+            if csv_file_path:
+                self.all_data = pd.read_csv(self.csv_file_path)
 
-            # CSV sanitation...this can be a very complex function
+                # CSV sanitation...this can be a very complex function
 
-            # 1. Byte columns defined as nullable integers
-            # Determine which byte columns exist (from '1' up to the max found)
-            byte_cols = []
-            for i in range(1, 65):
-                col_name = str(i)
-                if col_name in self.all_data.columns:
-                    byte_cols.append(col_name)
-            for col in byte_cols:
-                self.all_data[col] = self.all_data[col].astype(pd.UInt8Dtype())
+        # Throw error if no data loaded
+        if (
+            not hasattr(self, "all_data")
+            or self.all_data is None
+            or self.all_data.empty
+        ):
+            raise ValueError(
+                "No data loaded. Provide a valid DataFrame or CSV file path."
+            )
+
+        # Common df sanitation
+        # 1. Byte columns defined as nullable integers
+        # Determine which byte columns exist (from '1' up to the max found)
+        byte_cols = []
+        for i in range(1, 65):
+            col_name = str(i)
+            if col_name in self.all_data.columns:
+                byte_cols.append(col_name)
+        for col in byte_cols:
+            self.all_data[col] = self.all_data[col].astype(pd.UInt8Dtype())
 
     def get_message(self, msg_id, byte_filter_values=None):
         """
@@ -55,15 +68,24 @@ class Decoder:
 
             Parameters:
                 msg_id (str): In hex
-                byte_filter_values (None or list of ints): Values for byte filter columns
+                byte_filter_values (None or list of ints): Values for
+                byte filter columns
         """
         matches = [msg for msg in self.msgs if msg.msg_id == msg_id]
         if byte_filter_values is not None:
             # Filter by byte_filter_values list
             for msg in matches:
-                if msg.msg_byte_filter is not None and list(msg.msg_byte_filter.values()) == byte_filter_values:
+                if (
+                    msg.msg_byte_filter is not None
+                    and list(msg.msg_byte_filter.values()) == byte_filter_values
+                ):
                     return msg
-            raise ValueError(f"No message found with msg_id={msg_id} and byte_filter_values={byte_filter_values}")
+            raise ValueError(
+                (
+                    f"No message found with msg_id={msg_id} "
+                    f"and byte_filter_values={byte_filter_values}"
+                )
+            )
         else:
             if len(matches) == 1:
                 return matches[0]
@@ -88,7 +110,9 @@ class Decoder:
         """
         msg = self.get_message(msg_id, byte_filter_values)
         if signal_id is None:
-            raise Warning(f"signal_id is None. Available signals: {[s.name for s in msg.signals]}")
+            raise Warning(
+                f"signal_id is None. Available signals: {[s.name for s in msg.signals]}"
+            )
         return msg.get_signal(signal_id)
 
     def generate_msgs(self, byte_filters=None):
@@ -96,8 +120,10 @@ class Decoder:
         Generates PandaCANDecoder.Message() objects for each unique message in CAN file
         """
 
-        #unique_pairings = self.all_data.drop_duplicates(subset=["arb_id"])
-        self.unique_msg_ids = self.all_data.drop_duplicates(subset=["arb_id"])["arb_id"].to_list()
+        # unique_pairings = self.all_data.drop_duplicates(subset=["arb_id"])
+        self.unique_msg_ids = self.all_data.drop_duplicates(subset=["arb_id"])[
+            "arb_id"
+        ].to_list()
 
         if byte_filters is not None:
             # Validate byte_filters format
@@ -113,18 +139,19 @@ class Decoder:
                 # Generate sub-messages with byte filter
                 msg_byte_filter = byte_filters[msg_id]
 
-                
-                unique_msg_pairings = msg_data.drop_duplicates(subset = msg_byte_filter)
+                unique_msg_pairings = msg_data.drop_duplicates(subset=msg_byte_filter)
 
                 for _, row in unique_msg_pairings.iterrows():
                     sub_msg_data = msg_data[
                         (msg_data[msg_byte_filter] == row[msg_byte_filter]).all(axis=1)
                     ]
 
-                    # sub_msg_length = determine_length(sub_msg_data) # TODO: Apply and refine
+                    # sub_msg_length = determine_length(sub_msg_data) # TODO: Apply
+                    # and refine
                     sub_msg_length = sub_msg_data["length"].iloc[0]
 
-                    # Create a dict mapping column names to their values in the current row
+                    # Create a dict mapping column names to their values in the
+                    # current row
                     msg_byte_filter_dict = {col: row[col] for col in msg_byte_filter}
 
                     self.msgs.append(
@@ -135,17 +162,16 @@ class Decoder:
                         )
                     )
 
-
             else:
                 msg_length = msg_data["length"].iloc[0]
 
                 self.msgs.append(
-                Message(
-                    msg_id=msg_id,
-                    msg_length=msg_length,
-                    msg_byte_filter=None,
+                    Message(
+                        msg_id=msg_id,
+                        msg_length=msg_length,
+                        msg_byte_filter=None,
+                    )
                 )
-            )
 
         print(f"Generated {len(self.msgs)} messages")
 
@@ -229,6 +255,7 @@ class Decoder:
 
         msg.signals = signals_be + signals_le
         msg.tokenization_method_used = tokenization_method
+
     def _method_condition(
         self, method, i, bf_probability, conditional_bf_probability, alpha1, alpha2
     ):
@@ -312,7 +339,9 @@ class Decoder:
                     byte_order,
                     msg_size_bytes=msg.msg_length,
                 )
-                signal_name = f"S_{(msg.msg_id).upper()}_{(byte_order).upper()}_{signal_name_idx}"
+                signal_name = (
+                    f"S_{(msg.msg_id).upper()}_{(byte_order).upper()}_{signal_name_idx}"
+                )
                 if bf_probability[i] == 0:
                     signal = Signal(
                         start_bit,
@@ -447,18 +476,25 @@ class Decoder:
             print(f"Message {msg_id} not found.")
             return
 
-        conditional_bit_flip = (msg.tokenization_method_used == 'conditional_bit_flip')
+        conditional_bit_flip = msg.tokenization_method_used == "conditional_bit_flip"
 
-        fig = plot_probability_chart(msg, byte_order=byte_order, conditional_bit_flip=conditional_bit_flip)
+        fig = plot_probability_chart(
+            msg, byte_order=byte_order, conditional_bit_flip=conditional_bit_flip
+        )
         fig.show()
 
-    def plot_message_ts_signals(self, msg_id, byte_filter_values=None, return_fig=False, normalized=False):
+    def plot_message_ts_signals(
+        self, msg_id, byte_filter_values=None, return_fig=False, normalized=False
+    ):
         msg = self.get_message(msg_id, byte_filter_values=byte_filter_values)
         if msg is None:
             print(f"Message {msg_id} not found.")
             return
 
-        fig = plot_ts_signals([signal for signal in msg.signals if signal.classification == "ts"],normalized=normalized)
+        fig = plot_ts_signals(
+            [signal for signal in msg.signals if signal.classification == "ts"],
+            normalized=normalized,
+        )
         if return_fig:
             return fig
         fig.show()
@@ -470,7 +506,7 @@ class Decoder:
         if not signals:
             print("Signals not found.")
             return
-        
+
         # Make sure it is a list, even with one signal
         if not isinstance(signals, list):
             signals = [signals]
@@ -480,32 +516,36 @@ class Decoder:
             return fig
         fig.show()
 
-    def plot_signal_from_id(self, msg_id, byte_filter_values=None, signal_id=None, return_fig=False):
+    def plot_signal_from_id(
+        self, msg_id, byte_filter_values=None, signal_id=None, return_fig=False
+    ):
         """
         Plot a signal by its message ID and signal name.
         """
-        signal = self.get_signal(msg_id, byte_filter_values=byte_filter_values, signal_id=signal_id)
+        signal = self.get_signal(
+            msg_id, byte_filter_values=byte_filter_values, signal_id=signal_id
+        )
         if signal is None:
             print(f"Signal {signal_id} in message {msg_id} not found.")
             return
-        
+
         fig = plot_ts_signal(signal)
         if return_fig:
             return fig
         fig.show()
 
-        
-
-    def signal_match(self, signal_a, signal_b, start_time = None, end_time = None):
+    def signal_match(self, signal_a, signal_b, start_time=None, end_time=None):
         """
         Assume signal_a is the low update rate known signal,
-        and signal_b is the high update rate unknown signal we want to check signal_a against.
+        and signal_b is the high update rate unknown signal we want to check signal_a
+        against.
         Steps:
         1. Filter both signals by start_time and end_time.
         2. Interpolate high-rate signal_b to the timestamps of low-rate signal_a.
         3. Perform linear regression between signal_a and interpolated signal_b.
         Returns:
-            result_dict: dict with keys 'x_time', 'x', 'y_interp', 'regression_coef', 'regression_intercept', 'r_value', 'p_value', 'std_err'
+            result_dict: dict with keys 'x_time', 'x', 'y_interp', 'regression_coef',
+            'regression_intercept', 'r_value', 'p_value', 'std_err'
         """
         # Step 1: Filter signal_a (low-rate)
         a_time = signal_a.ts_data_timestamps
@@ -548,7 +588,7 @@ class Decoder:
             return None
         regression = linregress(x, y_interp)
 
-        # # Step 3 Alternative 
+        # # Step 3 Alternative
         #         # Step 3: Linear regression using sklearn
         # x_reshaped = x.reshape(-1, 1)
         # y_interp_reshaped = y_interp.reshape(-1, 1)
@@ -564,7 +604,8 @@ class Decoder:
         # regression.rvalue = np.sqrt(1 - ss_res / ss_tot) if ss_tot != 0 else 0
         # regression.pvalue = None  # Not available in sklearn
         # regression.stderr = None  # Not available in sklearn
-        # regression.score = reg.score(x_reshaped, y_interp_reshaped)  # Coefficient of determination (R^2)
+        # regression.score = reg.score(x_reshaped, y_interp_reshaped)  # Coefficient of
+        # determination (R^2)
 
         # Step 4: Return results
         # result_dict = {
@@ -575,16 +616,25 @@ class Decoder:
         #     'std_err': regression.stderr,
         #     'score': regression.rvalue ** 2  # Coefficient of determination (R^2)
         # }
-        return regression, regression.rvalue ** 2
+        return regression, regression.rvalue**2
 
-    def find_signal_match(self, signal, thresh=0.5, start_time=None, end_time=None, messages=None, only_ts = False):
+    def find_signal_match(
+        self,
+        signal,
+        thresh=0.5,
+        start_time=None,
+        end_time=None,
+        messages=None,
+        only_ts=False,
+    ):
         """
-        Loop through all signals of all other messages (or the ones specified in messages) and
+        Loop through all signals of all other messages (or the ones specified in
+        messages) and
         find a matching signal for the given signal within the specified time range.
         """
         if messages is None:
             messages = self.msgs
-        else:   
+        else:
             # Make sure its a list
             # TODO: More validation
             if not isinstance(messages, list):
@@ -594,12 +644,19 @@ class Decoder:
 
         for msg in messages:
             for other_signal in msg.signals:
-                if (other_signal == signal) or (only_ts and other_signal.classification != 'ts'):
+                if (other_signal == signal) or (
+                    only_ts and other_signal.classification != "ts"
+                ):
                     continue
-                regression, r_sq = self.signal_match(signal, other_signal, start_time, end_time)
+                regression, r_sq = self.signal_match(
+                    signal, other_signal, start_time, end_time
+                )
                 if r_sq is not None and r_sq >= thresh:
                     print(
-                        f"{signal.name:<20} --> {other_signal.name:<20} in {msg.msg_id:<10} , r^2={r_sq:.6f}"
+                        (
+                            f"{signal.name:<20} --> {other_signal.name:<20} "
+                            f"in {msg.msg_id:<10} , r^2={r_sq:.6f}"
+                        )
                     )
                     candidates.append((other_signal, regression, r_sq))
                     # Sort candidates by r^2 value
