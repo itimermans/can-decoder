@@ -42,11 +42,7 @@ class Decoder:
                 # CSV sanitation...this can be a very complex function
 
         # Throw error if no data loaded
-        if (
-            not hasattr(self, "all_data")
-            or self.all_data is None
-            or self.all_data.empty
-        ):
+        if not hasattr(self, "all_data") or self.all_data is None:
             raise ValueError(
                 "No data loaded. Provide a valid DataFrame or CSV file path."
             )
@@ -590,7 +586,10 @@ class Decoder:
             regression = linregress(x, y_interp)
         except Exception as e:
             import warnings
-            warnings.warn(f"Linear regression failed for signal_a {signal_a.name} ({signal_a.msg.msg_id}) and signal_b {signal_b.name} ({signal_b.msg.msg_id}): \n{e}")
+
+            warnings.warn(
+                f"Linear regression failed for signal_a {signal_a.name} ({signal_a.msg.msg_id}) and signal_b {signal_b.name} ({signal_b.msg.msg_id}): \n{e}"
+            )
             return None
 
         # # Step 3 Alternative
@@ -664,35 +663,152 @@ class Decoder:
                             f"in {msg.msg_id:<10} , r^2={r_sq:.6f}"
                         )
                     )
-                    candidates.append((other_signal, regression, r_sq))
+                    candidates.append(
+                        {"signal": other_signal, "regression": regression, "r_sq": r_sq}
+                    )
                     # Sort candidates by r^2 value
-                    candidates.sort(key=lambda x: x[2], reverse=True)
+                    candidates.sort(key=lambda x: x["r_sq"], reverse=True)
 
         return candidates
 
     def plot_signal_matches(self, signal, candidates, return_fig=False):
 
-        signals = [signal] + [c[0] for c in candidates]
+        signals = [signal] + [c["signal"] for c in candidates]
 
-        fig = self.plot_signals(signals, return_fig=True, normalized=True)
+        fig = self.plot_signals(signals, return_fig=True, normalized=False)
 
         fig.data[0].line.color = "black"  # Original signal in black
-        fig.data[0].mode = "lines+markers"  # Thicker line for original signal
+        fig.data[0].mode = "lines+markers"
         fig.data[0].marker.symbol = "cross"
         fig.data[0].yaxis = "y2"
+
+        # Add R2 to names
+        for i, c in enumerate(candidates):
+            signal = c["signal"]
+            slope = c["regression"].slope
+            intercept = c["regression"].intercept
+            fig.data[i + 1].name = (
+                f"{signal.name}<br>"
+                f"(R²={c['r_sq']:.6f})<br>"
+                f"(A={slope:.2f}, b={intercept:.2f})"
+            )
+            fig.data[i + 1].y = (fig.data[i + 1].y) / slope + intercept
+
+        # Compute min/max for all y values (original + candidates)
+        all_y = [fig.data[0].y] + [fig.data[i + 1].y for i in range(len(candidates))]
+        y_min = min(np.min(y) for y in all_y)
+        y_max = max(np.max(y) for y in all_y)
+
+        # Add +/- 5% margin to y-axis range
+        y_range_span = y_max - y_min
+        margin = y_range_span * 0.05
+        y_min_margin = y_min - margin
+        y_max_margin = y_max + margin
+
         fig.update_layout(
             yaxis2=dict(
                 title="Matched Signals",
                 overlaying="y",
                 side="right",
                 showgrid=False,
-            )
+                range=[y_min_margin, y_max_margin],
+            ),
+            yaxis=dict(
+                range=[y_min_margin, y_max_margin],
+            ),
         )
-
-        # Add R2 to names
-        for i, c in enumerate(candidates):
-            fig.data[i + 1].name = f"{c[0].name}<br>(R²={c[2]:.6f})"
 
         if return_fig:
             return fig
         fig.show()
+
+    def generate_matching_table(
+        self,
+        reference_messages: list[Message] | None = None,
+        reference_signals: list[Signal] | None = None,
+        target_messages: list[Message] | None = None,
+        # TODO: Add target_signals capability here
+        # target_signals: list[Signal] | None = None,
+    ):
+
+        # Heavy argument checking: if reference_messages is None,
+        # reference_signals SHOULD be a list of signals.
+        if reference_messages is None and reference_signals is None:
+            raise ValueError(
+                "At least one of reference_messages or reference_signals "
+                "must be provided."
+            )
+
+        # If only reference_signals is None, extract it from reference_messages
+        if reference_signals is None:
+            reference_signals = [
+                signal
+                for msg in reference_messages
+                for signal in msg.signals
+                if signal.classification == "ts"  # TODO: Implement extraction logic
+            ]
+        elif reference_messages is not None:
+            # TODO: Check reference_signals against the signals from reference_messages
+            raise Warning(
+                "Both reference_messages and reference_signals are provided. "
+                "Using reference_signals only."
+            )
+
+        # Target messages should not be None
+        if target_messages is None:
+            raise ValueError("Target messages must be provided.")
+
+        # Matching
+        table = []
+
+        for i, signal in enumerate(reference_signals):
+            print("\n")
+            print(
+                f"{i+1}/{len(reference_signals):<10} Signal:   "
+                f"{signal.msg.msg_id:<8} | {signal.name}"
+            )
+
+            try:
+                candidates = self.find_signal_match(
+                    signal,
+                    thresh=0.9,
+                    messages=target_messages,
+                    only_ts=True,
+                )
+            except Exception as e:
+                # print(f"Error finding signal match: {e}")
+                candidates = [e]
+
+            # Fill table
+            if candidates and isinstance(candidates[0], dict):
+                top_candidate_signal = candidates[0]["signal"].name
+                top_candidate_message = candidates[0]["signal"].msg.msg_id
+                top_candidate_r2 = candidates[0]["r_sq"]
+            else:
+                top_candidate_signal = None
+                top_candidate_message = None
+                top_candidate_r2 = None
+
+            row = {
+                "Ref_Message": signal.msg,
+                "Ref_Signal": signal,
+                "Candidates": candidates,
+                "Top_Candidate_Signal": top_candidate_signal,
+                "Top_Candidate_Message": top_candidate_message,
+                "Top_Candidate_R2": top_candidate_r2,
+            }
+            table.append(row)
+
+        table_df = pd.DataFrame(
+            table,
+            columns=[
+                "Ref_Message",
+                "Ref_Signal",
+                "Candidates",
+                "Top_Candidate_Signal",
+                "Top_Candidate_Message",
+                "Top_Candidate_R2",
+            ],
+        )
+
+        return table_df

@@ -1,4 +1,5 @@
 data/*
+results/*
 time_series_msgs/*
 old-can-decoder-c56d4fe6/old_time_series_msgs/*
 old_time_series_msgs/*
