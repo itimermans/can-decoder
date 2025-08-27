@@ -587,7 +587,10 @@ class Decoder:
         except Exception as e:
             import warnings
 
-            warnings.warn(
+            # warnings.warn(
+            #     f"Linear regression failed for signal_a {signal_a.name} ({signal_a.msg.msg_id}) and signal_b {signal_b.name} ({signal_b.msg.msg_id}): \n{e}"
+            # )
+            print(
                 f"Linear regression failed for signal_a {signal_a.name} ({signal_a.msg.msg_id}) and signal_b {signal_b.name} ({signal_b.msg.msg_id}): \n{e}"
             )
             return None
