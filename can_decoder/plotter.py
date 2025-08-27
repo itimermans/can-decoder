@@ -152,8 +152,15 @@ def plot_ts_signals(signals, normalized=False):
                 y=signal.ts_data_normalized if normalized else signal.ts_data,
                 mode="lines",
                 name=signal.name,
+                showlegend=True
             )
             for signal in signals
-        ]
+        ],
+        layout=dict(
+            title="Time Series Signals",
+            xaxis_title="Time",
+            yaxis_title="Value",
+        )
     )
+
     return fig
