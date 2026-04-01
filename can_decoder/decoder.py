@@ -335,9 +335,20 @@ class Decoder:
                     byte_order,
                     msg_size_bytes=msg.msg_length,
                 )
-                signal_name = (
-                    f"S_{(msg.msg_id).upper()}_{(byte_order).upper()}_{signal_name_idx}"
-                )
+                if msg.msg_byte_filter is not None:
+                    byte_filter_str = "__".join(
+                        [f"{k}_{v}" for k, v in msg.msg_byte_filter.items()]
+                    )
+
+                    signal_name = (
+                        f"S_{(msg.msg_id).upper()}__{byte_filter_str}"
+                        f"__{(byte_order).upper()}_{signal_name_idx}"
+                    )
+
+                else:
+
+                    signal_name = f"S_{(msg.msg_id).upper()}_{(byte_order).upper()}_{signal_name_idx}"
+
                 if bf_probability[i] == 0:
                     signal = Signal(
                         start_bit,
@@ -677,11 +688,13 @@ class Decoder:
 
         return candidates
 
-    def plot_signal_matches(self, signal, candidates, return_fig=False):
+    def plot_signal_matches(
+        self, signal, candidates, return_fig=False, normalized=False
+    ):
 
         signals = [signal] + [c["signal"] for c in candidates]
 
-        fig = self.plot_signals(signals, return_fig=True, normalized=False)
+        fig = self.plot_signals(signals, return_fig=True, normalized=normalized)
 
         fig.data[0].line.color = "black"  # Original signal in black
         fig.data[0].mode = "lines+markers"

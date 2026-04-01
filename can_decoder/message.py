@@ -75,7 +75,16 @@ class Message:
         """
         # Data path
         # TODO: Add byte filter in data path to avoid errors
-        data_path = os.path.join(self.time_series_msg_dir, self.msg_id + ".csv")
+        # (In progress)
+        if self.msg_byte_filter is not None:
+            byte_filter_str = "__".join(
+                [f"{k}_{v}" for k, v in self.msg_byte_filter.items()]
+            )
+            data_path = os.path.join(
+                self.time_series_msg_dir, f"{self.msg_id}__{byte_filter_str}.csv"
+            )
+        else:
+            data_path = os.path.join(self.time_series_msg_dir, self.msg_id + ".csv")
 
         # if data file does not exist
         if not os.path.exists(data_path) or rewrite:
