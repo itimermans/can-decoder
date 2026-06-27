@@ -8,6 +8,7 @@ from can_decoder.plotter import plot_probability_chart, plot_ts_signal, plot_ts_
 from can_decoder.signal import Signal
 from can_decoder.utils import (
     convert_signal,
+    determine_length,
     validate_byte_filters,
     validate_byte_order,
     validate_signedness_method,
@@ -144,7 +145,8 @@ class Decoder:
 
                     # sub_msg_length = determine_length(sub_msg_data) # TODO: Apply
                     # and refine
-                    sub_msg_length = sub_msg_data["length"].iloc[0]
+                    # sub_msg_length = sub_msg_data["length"].iloc[0]
+                    sub_msg_length = determine_length(sub_msg_data)
 
                     # Create a dict mapping column names to their values in the
                     # current row
@@ -159,7 +161,8 @@ class Decoder:
                     )
 
             else:
-                msg_length = msg_data["length"].iloc[0]
+                # msg_length = msg_data["length"].iloc[0]
+                msg_length = determine_length(msg_data)
 
                 self.msgs.append(
                     Message(
@@ -187,7 +190,7 @@ class Decoder:
         os.makedirs(self.time_series_msg_dir, exist_ok=True)
         for msg in self.msgs:
             msg.generate_ts_data(self.all_data, rewrite)
-
+    #TODO : Add option to indicate start_time and end_time for what period to use for decoding, not necessarily the entire dataset. 
     def calculate_signals(
         self,
         tokenization_method,
